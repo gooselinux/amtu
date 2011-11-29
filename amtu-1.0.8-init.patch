@@ -1,0 +1,146 @@
+diff -urN amtu-1.0.8.orig/configure.in amtu-1.0.8/configure.in
+--- amtu-1.0.8.orig/configure.in	2009-09-11 09:43:44.000000000 -0400
++++ amtu-1.0.8/configure.in	2009-09-11 09:44:10.000000000 -0400
+@@ -19,7 +19,7 @@
+ esac
+ AC_CHECK_LIB(laus, laus_open)
+ AC_CHECK_LIB(audit, audit_open)
+-AC_OUTPUT(Makefile src/Makefile doc/Makefile)
++AC_OUTPUT(Makefile src/Makefile init/Makefile doc/Makefile)
+ 
+ echo .
+ echo "
+diff -urN amtu-1.0.8.orig/init/amtu.init amtu-1.0.8/init/amtu.init
+--- amtu-1.0.8.orig/init/amtu.init	1969-12-31 19:00:00.000000000 -0500
++++ amtu-1.0.8/init/amtu.init	2009-09-11 13:35:53.000000000 -0400
+@@ -0,0 +1,86 @@
++#!/bin/sh
++#
++# amtu:		Abstract Machine Tests
++#
++# chkconfig: - 96 99
++# description:  This service runs the abstract machine tests to check the \
++#		underlying security assumptions. It can be configured to
++#		halt the machine in the event of failure. The program does
++#		not stay resident, but rather runs once.
++#
++# processname: /usr/sbin/amtu
++# config: /etc/sysconfig/amtu
++#
++# Return values according to LSB for all commands but status:
++# 0 - success
++# 1 - generic or unspecified error
++# 2 - invalid or excess argument(s)
++# 3 - unimplemented feature (e.g. "reload")
++# 4 - insufficient privilege
++# 5 - program is not installed
++# 6 - program is not configured
++# 7 - program is not running
++
++PATH=/sbin:/bin:/usr/sbin:/usr/bin
++prog="amtu"
++
++# Source function library.
++. /etc/rc.d/init.d/functions
++
++# Allow anyone to run status
++if [ "$1" = "status" ] ; then
++	exit 0
++fi
++
++# Check that we are root ... so non-root users stop here
++test $EUID = 0  ||  exit 4
++
++# Check config
++test -f /etc/sysconfig/amtu && . /etc/sysconfig/amtu
++
++RETVAL=0
++
++start() {
++	test -x /usr/sbin/amtu  || exit 5
++	# Now check that the syconfig is found and has important things
++	# configured
++	test -f /etc/sysconfig/amtu || exit 6
++	test x"$AMTU_HALT_ON_FAILURE" != "x" || exit 6
++	test x"$HALT_COMMAND" != "x" || exit 6
++	echo -n $"Starting $prog: "
++	daemon $prog "$EXTRAOPTIONS" >/dev/null 2>&1
++	RETVAL=$?
++	echo
++	if [ $RETVAL -ne 0 ] ; then
++		if [ "$AMTU_HALT_ON_FAILURE" = "yes" ] ; then
++			# Give audit daemon chance to write to disk
++			sleep 3
++			logger "Amtu failed and halt on failure requested"
++			$HALT_COMMAND
++		fi
++	fi
++	return $RETVAL
++}
++
++stop() {
++	/bin/true
++}
++
++# See how we were called.
++case "$1" in
++    start)
++	start
++	;;
++    stop)
++	stop
++	;;
++    restart)
++	stop
++	start
++	;;
++    *)
++	echo $"Usage: $0 {start|stop|restart}"
++	RETVAL=3
++	;;
++esac
++exit $RETVAL
+diff -urN amtu-1.0.8.orig/init/amtu.sysconfig amtu-1.0.8/init/amtu.sysconfig
+--- amtu-1.0.8.orig/init/amtu.sysconfig	1969-12-31 19:00:00.000000000 -0500
++++ amtu-1.0.8/init/amtu.sysconfig	2009-09-11 09:44:10.000000000 -0400
+@@ -0,0 +1,11 @@
++# Add extra options here:
++EXTRAOPTIONS=""
++#
++# This option is used to determine if failing any amtu test should result in
++# the machine being unusable. The default is no, but it can be changed to
++# yes in case this is desired.
++AMTU_HALT_ON_FAILURE="no"
++#
++# Should halt on failure trigger and its set to yes, the following command
++# will be issued to stop the system:
++HALT_COMMAND="poweroff"
+diff -urN amtu-1.0.8.orig/init/Makefile.am amtu-1.0.8/init/Makefile.am
+--- amtu-1.0.8.orig/init/Makefile.am	1969-12-31 19:00:00.000000000 -0500
++++ amtu-1.0.8/init/Makefile.am	2009-09-11 09:44:10.000000000 -0400
+@@ -0,0 +1,16 @@
++
++CONFIG_CLEAN_FILES = *.rej *.orig
++EXTRA_DIST = amtu.init amtu.sysconfig
++initdir=$(sysconfdir)/rc.d/init.d
++sysconfigdir=$(sysconfdir)/sysconfig
++
++install-data-hook:
++	$(INSTALL_DATA) -D -m 640 ${srcdir}/amtu.sysconfig ${DESTDIR}${sysconfigdir}/amtu
++
++install-exec-hook:
++	$(INSTALL_SCRIPT) -D -m 755 ${srcdir}/amtu.init ${DESTDIR}${initdir}/amtu
++
++uninstall-hook:
++	rm ${DESTDIR}${sysconfigdir}/amtu
++	rm ${DESTDIR}${initdir}/amtu
++
+diff -urN amtu-1.0.8.orig/Makefile.am amtu-1.0.8/Makefile.am
+--- amtu-1.0.8.orig/Makefile.am	2009-09-11 09:43:44.000000000 -0400
++++ amtu-1.0.8/Makefile.am	2009-09-11 09:44:10.000000000 -0400
+@@ -1,4 +1,4 @@
+-SUBDIRS = src doc
++SUBDIRS = src init doc
+ EXTRA_DIST = bootstrap LICENSE CPLv1.0.htm README
+ CONFIG_CLEAN_FILES = debug*.list config/*
+ 

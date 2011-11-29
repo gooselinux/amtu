@@ -1,0 +1,12 @@
+diff -urp amtu-1.0.8.orig/src/memsep.c amtu-1.0.8/src/memsep.c
+--- amtu-1.0.8.orig/src/memsep.c	2010-01-18 10:56:48.000000000 -0500
++++ amtu-1.0.8/src/memsep.c	2010-01-18 11:42:23.000000000 -0500
+@@ -102,7 +102,7 @@ void sig_handler(int sig)
+ #endif
+ int *get_pointer_in_range(int *start, int *end)
+ {
+-        return (int *)((char *)start + (RANDNUM % ((char *)end - (char *)start + 1)));
++        return (int *)((char *)start + (RANDNUM % ((char *)end - (char *)start)));
+ }
+ 
+ /************************************************************************/
